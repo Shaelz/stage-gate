@@ -213,10 +213,14 @@ biljartv2's real test cases... not new hypothetical tests").
   likely just needs the three bucket definitions to be caller-supplied.
 - **Approval identity**: `actor_user_id` on the audit log, nullable. The core
   can likely take an opaque "approver id" and let the host resolve it.
-- **Storage boundary**: publish currently does upsert-competitions +
+- **Storage boundary** — decided: publish currently does upsert-competitions +
   delete-by-scope + insert-staged directly against Eloquent inside one
-  transaction. This is the piece most entangled with Laravel/Eloquent and
-  needs the clearest interface in step 2.
+  transaction. Rather than exposing a repository interface for the core to
+  call, the core returns a plan/diff describing what should be written, and
+  the host application (the thin Laravel wrapper, step 3) executes that plan
+  inside its own transaction. Keeps the core storage-agnostic without asking
+  every host to implement an interface, and leaves transactional semantics
+  where they already work today: in Eloquent.
 - **Manual-edit detection** was not called out in the original open
   questions but is a real, load-bearing behavior: publish safety depends on
   checking the audit log for edits made *outside* the pipeline. The generic

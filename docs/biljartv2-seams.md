@@ -239,3 +239,21 @@ biljartv2's real test cases... not new hypothetical tests").
   job is producing the correctly-scoped `$existingRows` query; it never needs
   separate "delete stale rows in scope" logic of its own — it just executes
   whatever the plan says.
+- **Queue integration and the existing-rows adapter (step 3 build-out)** —
+  the wrapper introduces one interface per host-supplied concern:
+  `ExistingRowsProvider::existingRows(Batch): Row[]` (the scoped query above)
+  and `PublishWriter::write(PublishWrite): void` (upsert vs. delete per
+  `ChangeClass`). Both, plus `schema()` and `fieldGroups()`, are bundled into
+  a single `ImportDefinition` the host implements per import type (fixtures,
+  teams, etc). `ProofAndStageJob` and `PublishJob` are queueable and take
+  only serializable primitives in their constructors — a batch key, raw rows,
+  and the `ImportDefinition`'s *class-string* — resolving the definition
+  from the container inside `handle()` rather than storing it as job state.
+  This sidesteps a real problem: `Schema`'s field validators are closures,
+  and PHP can't serialize closures for the queue, so an `ImportDefinition`
+  instance must never be a job's constructor property, only its class name.
+  `PublishJob` also re-runs `Classifier::classifyAll()` and `Approve::approve()`
+  fresh against newly-queried `$existingRows` before publishing — the same
+  safety re-check biljartv2's publish command performs, so a canonical row
+  edited after approval still blocks an unapproved overwrite instead of
+  silently publishing stale approval data.

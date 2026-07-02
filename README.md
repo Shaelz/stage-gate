@@ -35,18 +35,25 @@ See [ROADMAP.md](ROADMAP.md) for the planned build sequence.
 
 ## Status
 
-Not started. Extracting from biljartv2's Laravel implementation. Target: a small, framework-agnostic core (the stage contract, the diff classifier, the transactional publish) with a thin Laravel package on top, since that's where the reference implementation lives.
+In progress. Steps 1–3 of the [roadmap](ROADMAP.md) are done:
 
-## Shape of the API (draft, subject to change)
+- Step 1: the seams in biljartv2's fixture-import code are mapped — see [docs/biljartv2-seams.md](docs/biljartv2-seams.md).
+- Step 2: the framework-agnostic core is built — `Proof`, `Stage`, `Classifier` (review/diff), `Approve`, `Publish` — with no Laravel dependency, fully tested with Pest.
+- Step 3: the thin Laravel wrapper is scaffolded — a service provider, migrations, Eloquent models, a `BatchRepository`, a `PublishExecutor`, and queueable `ProofAndStageJob`/`PublishJob` classes. Host apps supply domain-specific glue (schema, field groups, existing-row queries, write logic) via a single `ImportDefinition` implementation per import type.
+
+Not yet done: swapping biljartv2 over to actually consume the package (step 4), which is the real proof that the extraction boundary was drawn in the right place.
+
+## Shape of the API (as built)
 
 ```
-pipeline
-  .proof(rows, schema)       // validate, return typed rows or errors
-  .stage(rows)                // hold pending, not yet visible
-  .review(rows, existing)     // classify: new | unchanged | updated | overwrite_risk
-  .approve(rowIds)            // explicit acknowledgment of overwrite-risk rows
-  .publish()                  // transactional write, full audit trail
+Proof::analyze($rawRows, $schema)                          // -> ProofResult: typed rows or errors, no partial success
+Stage::stage($key, $proofResult->rows)                      // -> Batch: held pending, not yet visible
+Classifier::classifyAll($stagedRows, $existingRows, $groups) // -> ClassifiedRow[]: new | unchanged | updated | overwrite_risk | removed
+Approve::approve($batch, $classifiedRows, $approvedRowKeys, $approvedBy) // -> ApprovalResult: gates on unacknowledged overwrite-risk rows
+Publish::plan($classifiedRows, $approval, $source)           // -> PublishPlan: writes + audit entry, for the host to execute transactionally
 ```
+
+The core never touches storage. `Publish::plan()` returns a plan — a list of writes (upserts and deletes) plus an audit entry — and the host application executes it inside its own transaction. See the "storage boundary" and "scope" entries in [docs/biljartv2-seams.md](docs/biljartv2-seams.md) for why.
 
 ## Proof this works before it's a library
 

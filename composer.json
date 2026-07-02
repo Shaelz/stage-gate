@@ -7,7 +7,15 @@
         "php": "^8.2"
     },
     "require-dev": {
-        "pestphp/pest": "^2.34"
+        "pestphp/pest": "^2.34",
+        "spatie/laravel-package-tools": "^1.93",
+        "illuminate/database": "^12.62",
+        "illuminate/support": "^12.62"
+    },
+    "suggest": {
+        "spatie/laravel-package-tools": "Required to use the Laravel wrapper (StageGate\\Laravel).",
+        "illuminate/database": "Required to use the Laravel wrapper's Eloquent models and migrations.",
+        "illuminate/support": "Required to use the Laravel wrapper's service provider."
     },
     "autoload": {
         "psr-4": {
@@ -24,6 +32,13 @@
     "config": {
         "allow-plugins": {
             "pestphp/pest-plugin": true
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "StageGate\\Laravel\\StageGateServiceProvider"
+            ]
         }
     }
 }

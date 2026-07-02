@@ -226,3 +226,16 @@ biljartv2's real test cases... not new hypothetical tests").
   checking the audit log for edits made *outside* the pipeline. The generic
   core needs some hook for "has this canonical record been touched since
   last published," not just a staged-vs-canonical diff.
+- **Scope and delete-by-scope publish (step 3 design)** — decided while
+  planning the Laravel wrapper: "scope" doesn't need its own type in the
+  core. The host already decides scope by how it queries `$existingRows`
+  before calling `Classifier::classifyAll()` (e.g. filtered by
+  season+competition). What was missing was a way for the classifier to
+  surface rows present in `$existingRows` but absent from the staged set —
+  biljartv2's delete-by-scope behavior. `ChangeClass::Removed` was added for
+  this: the classifier now emits a `Removed` row for every existing-only key,
+  and `Publish::plan()` includes these as delete-writes alongside the
+  New/Updated/OverwriteRisk writes. The Laravel wrapper's only scope-specific
+  job is producing the correctly-scoped `$existingRows` query; it never needs
+  separate "delete stale rows in scope" logic of its own — it just executes
+  whatever the plan says.

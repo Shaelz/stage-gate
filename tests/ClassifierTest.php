@@ -71,6 +71,23 @@ it('classifies a whole staged set against existing rows by key', function () {
         ->and($classified[1]->changeClass)->toBe(ChangeClass::New);
 });
 
+it('classifies an existing row absent from the staged set as removed', function () {
+    $existingRows = [
+        new Row('LEAGUE-R01-M01', ['match_date' => '2026-09-20', 'round_number' => 1, 'home_team_code' => 'T_A', 'away_team_code' => 'T_B', 'home_score' => null, 'away_score' => null, 'status' => 'scheduled']),
+        new Row('LEAGUE-R01-M02', ['match_date' => '2026-09-27', 'round_number' => 2, 'home_team_code' => 'T_C', 'away_team_code' => 'T_D', 'home_score' => null, 'away_score' => null, 'status' => 'scheduled']),
+    ];
+    $stagedRows = [
+        new Row('LEAGUE-R01-M01', ['match_date' => '2026-09-20', 'round_number' => 1, 'home_team_code' => 'T_A', 'away_team_code' => 'T_B', 'home_score' => null, 'away_score' => null, 'status' => 'scheduled']),
+    ];
+
+    $classified = Classifier::classifyAll($stagedRows, $existingRows, fixtureFieldGroups());
+
+    expect($classified)->toHaveCount(2)
+        ->and($classified[0]->changeClass)->toBe(ChangeClass::Unchanged)
+        ->and($classified[1]->changeClass)->toBe(ChangeClass::Removed)
+        ->and($classified[1]->row->key)->toBe('LEAGUE-R01-M02');
+});
+
 it('is deterministic across repeated runs on the same input', function () {
     $existingRows = [
         new Row('LEAGUE-R01-M01', ['match_date' => '2026-09-20', 'round_number' => 1, 'home_team_code' => 'T_A', 'away_team_code' => 'T_B', 'home_score' => null, 'away_score' => null, 'status' => 'scheduled']),

@@ -37,6 +37,21 @@ it('builds a write plan and audit entry for an approved batch, skipping unchange
         ->and($plan->audit->publishedRowKeys)->toBe(['LEAGUE-R01-M01', 'LEAGUE-R01-M03']);
 });
 
+it('includes removed rows as delete-writes, unblocked by the approval gate', function () {
+    $batch = new Batch('batch-1', [], BatchStatus::Staged);
+    $classifiedRows = [
+        classifiedRow('LEAGUE-R01-M01', ChangeClass::Unchanged),
+        classifiedRow('LEAGUE-R01-M02', ChangeClass::Removed),
+    ];
+    $approval = Approve::approve($batch, $classifiedRows, [], 'jane@example.com');
+
+    $plan = Publish::plan($classifiedRows, $approval, 'fixtures-2026.xlsx');
+
+    expect($plan->writes)->toHaveCount(1)
+        ->and($plan->writes[0]->changeClass)->toBe(ChangeClass::Removed)
+        ->and($plan->audit->changeCounts)->toBe(['Removed' => 1]);
+});
+
 it('produces an identical plan when republishing the same approved batch', function () {
     $batch = new Batch('batch-1', [], BatchStatus::Staged);
     $classifiedRows = [

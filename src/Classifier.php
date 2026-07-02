@@ -19,10 +19,28 @@ final class Classifier
             $existingByKey[$row->key] = $row;
         }
 
-        return array_map(
-            fn (Row $staged) => self::classifyRow($staged, $existingByKey[$staged->key] ?? null, $fieldGroups),
-            $stagedRows,
-        );
+        $stagedKeys = [];
+        $classified = [];
+
+        foreach ($stagedRows as $staged) {
+            $stagedKeys[$staged->key] = true;
+            $classified[] = self::classifyRow($staged, $existingByKey[$staged->key] ?? null, $fieldGroups);
+        }
+
+        foreach ($existingRows as $existing) {
+            if (isset($stagedKeys[$existing->key])) {
+                continue;
+            }
+
+            $fieldChanges = array_map(
+                fn (string $field) => new FieldChange($field, $existing->get($field), null),
+                array_keys($existing->data),
+            );
+
+            $classified[] = new ClassifiedRow($existing, ChangeClass::Removed, $fieldChanges);
+        }
+
+        return $classified;
     }
 
     /** @param FieldGroup[] $fieldGroups */

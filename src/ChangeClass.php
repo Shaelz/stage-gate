@@ -10,4 +10,5 @@ enum ChangeClass
     case Unchanged;
     case Updated;
     case OverwriteRisk;
+    case Removed;
 }

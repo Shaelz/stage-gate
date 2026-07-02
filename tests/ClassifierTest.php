@@ -70,3 +70,19 @@ it('classifies a whole staged set against existing rows by key', function () {
         ->and($classified[0]->changeClass)->toBe(ChangeClass::Unchanged)
         ->and($classified[1]->changeClass)->toBe(ChangeClass::New);
 });
+
+it('is deterministic across repeated runs on the same input', function () {
+    $existingRows = [
+        new Row('LEAGUE-R01-M01', ['match_date' => '2026-09-20', 'round_number' => 1, 'home_team_code' => 'T_A', 'away_team_code' => 'T_B', 'home_score' => null, 'away_score' => null, 'status' => 'scheduled']),
+    ];
+    $stagedRows = [
+        new Row('LEAGUE-R01-M01', ['match_date' => '2026-10-01', 'round_number' => 1, 'home_team_code' => 'T_A', 'away_team_code' => 'T_B', 'home_score' => 3, 'away_score' => 1, 'status' => 'played']),
+    ];
+
+    $first = Classifier::classifyAll($stagedRows, $existingRows, fixtureFieldGroups());
+    $second = Classifier::classifyAll($stagedRows, $existingRows, fixtureFieldGroups());
+
+    expect($first[0]->changeClass)->toBe($second[0]->changeClass)
+        ->and(array_map(fn ($c) => [$c->field, $c->oldValue, $c->newValue], $first[0]->fieldChanges))
+        ->toBe(array_map(fn ($c) => [$c->field, $c->oldValue, $c->newValue], $second[0]->fieldChanges));
+});

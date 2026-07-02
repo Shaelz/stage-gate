@@ -44,3 +44,18 @@ it('requires the row key field', function () {
     expect($result->isValid())->toBeFalse()
         ->and($result->errors[0]->message)->toContain('fixture_key');
 });
+
+it('is deterministic across repeated runs on the same input', function () {
+    $rawRows = [
+        1 => ['fixture_key' => 'LEAGUE-R01-M01', 'home_score' => 3],
+        2 => ['fixture_key' => 'LEAGUE-R01-M02', 'home_score' => 'nine'],
+    ];
+
+    $first = Proof::analyze($rawRows, fixtureSchema());
+    $second = Proof::analyze($rawRows, fixtureSchema());
+
+    expect($first->isValid())->toBe($second->isValid())
+        ->and(array_map(fn ($row) => $row->key, $first->rows))->toBe(array_map(fn ($row) => $row->key, $second->rows))
+        ->and(array_map(fn ($error) => [$error->sourceRow, $error->message], $first->errors))
+        ->toBe(array_map(fn ($error) => [$error->sourceRow, $error->message], $second->errors));
+});

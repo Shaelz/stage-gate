@@ -36,3 +36,21 @@ it('builds a write plan and audit entry for an approved batch, skipping unchange
         ->and($plan->audit->changeCounts)->toBe(['New' => 1, 'OverwriteRisk' => 1])
         ->and($plan->audit->publishedRowKeys)->toBe(['LEAGUE-R01-M01', 'LEAGUE-R01-M03']);
 });
+
+it('produces an identical plan when republishing the same approved batch', function () {
+    $batch = new Batch('batch-1', [], BatchStatus::Staged);
+    $classifiedRows = [
+        classifiedRow('LEAGUE-R01-M01', ChangeClass::New),
+        classifiedRow('LEAGUE-R01-M02', ChangeClass::Unchanged),
+        classifiedRow('LEAGUE-R01-M03', ChangeClass::OverwriteRisk),
+    ];
+    $approval = Approve::approve($batch, $classifiedRows, ['LEAGUE-R01-M03'], 'jane@example.com');
+
+    $first = Publish::plan($classifiedRows, $approval, 'fixtures-2026.xlsx');
+    $second = Publish::plan($classifiedRows, $approval, 'fixtures-2026.xlsx');
+
+    expect(array_map(fn ($w) => [$w->row->key, $w->changeClass], $first->writes))
+        ->toBe(array_map(fn ($w) => [$w->row->key, $w->changeClass], $second->writes))
+        ->and($first->audit->changeCounts)->toBe($second->audit->changeCounts)
+        ->and($first->audit->publishedRowKeys)->toBe($second->audit->publishedRowKeys);
+});

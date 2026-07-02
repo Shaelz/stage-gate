@@ -1,0 +1,29 @@
+{
+    "name": "shaelz/stage-gate",
+    "description": "A typed import pipeline: proof, stage, review, approve, publish.",
+    "type": "library",
+    "license": "MIT",
+    "require": {
+        "php": "^8.2"
+    },
+    "require-dev": {
+        "pestphp/pest": "^2.34"
+    },
+    "autoload": {
+        "psr-4": {
+            "StageGate\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "StageGate\\Tests\\": "tests/"
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    }
+}

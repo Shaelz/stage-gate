@@ -14,6 +14,9 @@ return new class extends Migration
             $table->id();
             $table->string('key')->unique();
             $table->string('status');
+            $table->string('approved_by')->nullable();
+            $table->json('approved_row_keys')->nullable();
+            $table->json('errors')->nullable();
             $table->timestamps();
         });
     }

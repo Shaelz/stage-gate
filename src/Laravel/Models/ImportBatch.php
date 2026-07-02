@@ -9,7 +9,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 final class ImportBatch extends Model
 {
-    protected $fillable = ['key', 'status'];
+    protected $fillable = ['key', 'status', 'approved_by', 'approved_row_keys', 'errors'];
+
+    protected $casts = [
+        'approved_row_keys' => 'array',
+        'errors' => 'array',
+    ];
 
     public function getTable(): string
     {

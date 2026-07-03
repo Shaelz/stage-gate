@@ -1,8 +1,16 @@
 {
     "name": "shaelz/stage-gate",
     "description": "A typed import pipeline: proof, stage, review, approve, publish.",
+    "keywords": ["import", "etl", "diff", "overwrite-protection", "audit-trail", "laravel"],
+    "homepage": "https://github.com/Shaelz/stage-gate",
     "type": "library",
     "license": "MIT",
+    "authors": [
+        {
+            "name": "Shaelz",
+            "email": "7167970+Shaelz@users.noreply.github.com"
+        }
+    ],
     "require": {
         "php": "^8.2"
     },

@@ -38,13 +38,13 @@
    - Cut over production and watch at least one real import cycle end-to-end.
 
 5. **Open source and write the case study**, once biljartv2 has run on the package through at least one real import cycle. The proof section should cite that migration, not just biljartv2's original numbers.
-   - Update README's "Proof this works" section with post-migration numbers (imports run, rows processed, any issues hit).
-   - Decide license and public repo visibility.
-   - Write the case study as its own piece (or extend the existing biljartv2 portfolio writeup) covering the extraction, not just the original feature.
+   - Repo is already public and MIT-licensed (made public as part of step 6, ahead of schedule, since Packagist wants a public repo anyway) — the visibility decision is done.
+   - Still blocked on the real thing this step is actually about: BiljartV2 running a real production import cycle on the package. Expected roughly Aug-Sep 2026, whenever the next real fixture update lands. Don't write the case study or update the "Proof this works" numbers before that happens — the whole point of this step is citing the real migration, not the pre-migration numbers we already have.
 
 6. **Stretch: publish to Packagist**, add a second reference implementation (something that isn't fixtures/results) to prove the abstraction generalizes past one domain.
-   - Tag a first semver release and register on Packagist.
-   - Pick a second import domain (something with different overwrite semantics than fixtures) to stress-test the generic classifier.
+   - Repo made public, MIT-licensed, tagged `v0.1.0` (GitHub release: https://github.com/Shaelz/stage-gate/releases/tag/v0.1.0) — done.
+   - **Manual step required, not done**: submitting the package on packagist.org needs a Packagist account login — visit https://packagist.org/packages/submit, enter `https://github.com/Shaelz/stage-gate`, then set up the GitHub webhook Packagist offers so future tags auto-publish. Nothing else here is blocked on it; `composer require shaelz/stage-gate` won't work for outside consumers until this step happens.
+   - Pick a second import domain (something with different overwrite semantics than fixtures) to stress-test the generic classifier — not started.
 
 ## Open questions
 

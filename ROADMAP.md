@@ -43,7 +43,7 @@
 
 6. **Stretch: publish to Packagist**, add a second reference implementation (something that isn't fixtures/results) to prove the abstraction generalizes past one domain.
    - Repo made public, MIT-licensed, tagged `v0.1.0` (GitHub release: https://github.com/Shaelz/stage-gate/releases/tag/v0.1.0) — done.
-   - **Manual step required, not done**: submitting the package on packagist.org needs a Packagist account login — visit https://packagist.org/packages/submit, enter `https://github.com/Shaelz/stage-gate`, then set up the GitHub webhook Packagist offers so future tags auto-publish. Nothing else here is blocked on it; `composer require shaelz/stage-gate` won't work for outside consumers until this step happens.
+   - Submitted to Packagist ([packagist.org/packages/shaelz/stage-gate](https://packagist.org/packages/shaelz/stage-gate)), GitHub webhook configured (scoped to just this repo, using the Safe API token rather than granting Packagist broader GitHub OAuth access) so future tags auto-publish. `composer require shaelz/stage-gate` works for outside consumers now — done.
    - Pick a second import domain (something with different overwrite semantics than fixtures) to stress-test the generic classifier — not started.
 
 ## Open questions

@@ -1,80 +1,96 @@
 # stage-gate
 
-A typed import pipeline as a standalone library: proof, stage, review, approve, publish.
+[![tests](https://github.com/Shaelz/stage-gate/actions/workflows/tests.yml/badge.svg)](https://github.com/Shaelz/stage-gate/actions/workflows/tests.yml)
+[![Packagist](https://img.shields.io/packagist/v/shaelz/stage-gate)](https://packagist.org/packages/shaelz/stage-gate)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+A typed import pipeline for PHP: **proof, stage, review, approve, publish.** The safety layer between "someone uploaded a file" and "the database changed."
 
 ## Why
 
-Most import features skip straight from "parse the file" to "write the rows." That works until someone re-uploads a file that overlaps with data already in the system, and something gets silently overwritten. The fix isn't a bigger try/catch, it's a pipeline with named stages, an explicit diff-classification step before any write, and a publish step that is all-or-nothing.
+Most import features skip straight from "parse the file" to "write the rows." That works until someone re-uploads a file that overlaps with data already in the system, and something gets silently overwritten. The fix isn't a bigger try/catch — it's a pipeline with named stages, an explicit diff-classification step before any write, and a publish step that's all-or-nothing.
 
-This pattern was built once, inside a client project (biljartv2), for importing competition fixtures from Excel. It has been running in production since the 2026/2027 season: 241 fixtures, zero silent overwrites, every publish traceable to a file upload, an approval action, and a named account. stage-gate is that pattern, pulled out and made generic over what's being imported.
+This pattern was built once inside a real Laravel app, for importing competition fixtures from Excel. It's been running in production since the 2025/2026 season, and has since been swapped in to replace that app's own hand-rolled diff and publish logic — verified against a real production database dump before the swap went live (see [ROADMAP.md](ROADMAP.md) for the details). stage-gate is that pattern, pulled out and made generic over what's being imported.
 
 ## What it does
 
 Five stages, each with an explicit outcome:
 
-1. **Proof** — parse the source file against a typed schema. Malformed rows fail here, before anything else runs.
-2. **Stage** — hold the parsed rows in a pending state, not yet visible to the rest of the system.
-3. **Review** — classify every staged row against what already exists. Each row gets a category: new, unchanged, updated, or overwrite-risk.
-4. **Approve** — a human (or a rule) explicitly acknowledges overwrite-risk rows. Nothing with an overwrite-risk classification can publish silently.
-5. **Publish** — a single transaction. Partial publishes are not possible: either every approved row lands, or none do.
-
-Every publish leaves an audit trail: which rows changed, what they changed from and to, which file and which account it came from.
+1. **Proof** — validate the parsed rows against a typed schema. Malformed rows fail here, before anything else runs.
+2. **Stage** — hold the valid rows in a pending state, not yet visible to the rest of the system.
+3. **Review** — classify every staged row against what already exists: `new`, `unchanged`, `updated`, `overwrite_risk`, or `removed`.
+4. **Approve** — a human (or a rule) explicitly acknowledges overwrite-risk rows. Nothing classified as overwrite-risk can publish without that acknowledgment.
+5. **Publish** — returns a plan of writes and an audit entry. Your app executes the plan inside its own transaction: either every approved row lands, or none do.
 
 ## What it isn't
 
-Not a general ETL framework. It doesn't move data between systems, transform arbitrary formats, or schedule jobs. It's specifically the safety layer between "someone uploaded a file" and "the database changed": diffing, gating, and accountability. Bring your own parser and your own storage; stage-gate owns the stages in between.
-
-## Suggested stack
-
-- **PHP 8.2+** for the core. Matches the reference implementation (biljartv2) and keeps extraction close to a refactor instead of a rewrite.
-- **Pest or PHPUnit** for the pipeline's own test suite: overwrite classification, transactional publish, and the "no partial writes" guarantee all need direct coverage, not just app-level tests.
-- **Thin Laravel package wrapper** (spatie/laravel-package-tools for the scaffold) around a framework-agnostic core. Keep the core free of Laravel dependencies so the stage contract could theoretically be consumed outside Laravel later, even if the only real consumer for now is Laravel.
-- **Composer** for distribution. Public and MIT-licensed as of [v0.1.0](https://github.com/Shaelz/stage-gate/releases/tag/v0.1.0) — not yet on Packagist, so install it as a local path repository until that submission lands (see Installation below).
-
-See [ROADMAP.md](ROADMAP.md) for the planned build sequence.
-
-## Status
-
-Steps 1–4 of the [roadmap](ROADMAP.md) are done:
-
-- Step 1: the seams in biljartv2's fixture-import code are mapped — see [docs/biljartv2-seams.md](docs/biljartv2-seams.md).
-- Step 2: the framework-agnostic core is built — `Proof`, `Stage`, `Classifier` (review/diff), `Approve`, `Publish` — with no Laravel dependency, fully tested with Pest.
-- Step 3: the thin Laravel wrapper is built — a service provider, migrations, Eloquent models, a `BatchRepository`, a `PublishExecutor`, and queueable `ProofAndStageJob`/`PublishJob` classes. Host apps supply domain-specific glue (schema, field groups, existing-row queries, write logic) via a single `ImportDefinition` implementation per import type.
-- Step 4: biljartv2's fixture-diff and fixture-publish code paths are actually swapped over to call this package — not a demo, the production system's own code. Verified against a real production database dump in a non-production dry run: the classifier correctly flagged 213 genuine overwrite-risk rows, publish correctly blocked without `--allow-result-overwrite` and correctly published with it, and the real production database was untouched throughout.
-
-Repo is public, MIT-licensed, and tagged at [v0.1.0](https://github.com/Shaelz/stage-gate/releases/tag/v0.1.0) (step 6, done early since Packagist wants a public repo anyway — submission itself is still pending).
-
-Not yet done: biljartv2 running an actual production import through this path (the rest of step 4), which then unblocks step 5's case study — expected once the next real fixture update lands, roughly a couple of months out as of this writing.
-
-## Shape of the API (as built)
-
-```
-Proof::analyze($rawRows, $schema)                          // -> ProofResult: typed rows or errors, no partial success
-Stage::stage($key, $proofResult->rows)                      // -> Batch: held pending, not yet visible
-Classifier::classifyAll($stagedRows, $existingRows, $groups) // -> ClassifiedRow[]: new | unchanged | updated | overwrite_risk | removed
-Approve::approve($batch, $classifiedRows, $approvedRowKeys, $approvedBy) // -> ApprovalResult: gates on unacknowledged overwrite-risk rows
-Publish::plan($classifiedRows, $approval, $source)           // -> PublishPlan: writes + audit entry, for the host to execute transactionally
-```
-
-The core never touches storage. `Publish::plan()` returns a plan — a list of writes (upserts and deletes) plus an audit entry — and the host application executes it inside its own transaction. See the "storage boundary" and "scope" entries in [docs/biljartv2-seams.md](docs/biljartv2-seams.md) for why.
+Not a general ETL framework. It doesn't parse your source files, move data between systems, or schedule jobs — bring your own parser and your own storage. stage-gate isn't a storage layer either: the core never touches a database. `Publish::plan()` hands back a list of writes and deletes plus an audit entry; your app is what executes them, inside its own transaction. This is deliberate — it's what keeps the core usable outside Laravel, and it's why "the host owns storage" runs through every stage.
 
 ## Installation
 
-Not yet on Packagist. Until that submission lands, add it as a local path repository:
-
-```json
-{
-    "repositories": [
-        { "type": "path", "url": "../path/to/stage-gate" }
-    ],
-    "require": {
-        "shaelz/stage-gate": "*@dev"
-    }
-}
+```bash
+composer require shaelz/stage-gate
 ```
 
-The Laravel wrapper (`StageGate\Laravel\*`) needs `spatie/laravel-package-tools`, `illuminate/support`, and `illuminate/database` in the host app — see the `suggest` entries in [composer.json](composer.json). The core (everything else) has no dependencies beyond PHP 8.2.
+The core (`Proof`, `Stage`, `Classifier`, `Approve`, `Publish`) has no dependencies beyond PHP 8.2. The optional Laravel wrapper (`StageGate\Laravel\*` — a service provider, migrations, Eloquent models, queueable jobs) needs `spatie/laravel-package-tools`, `illuminate/support`, and `illuminate/database` in your app; see the `suggest` entries in [composer.json](composer.json).
 
-## Proof this works before it's a library
+## Quick example
 
-biljartv2's case study: [gersvelte-portfolio/src/routes/projects/biljartv2](../gersvelte-portfolio/src/routes/projects/biljartv2)
+```php
+use StageGate\{Field, FieldGroup, Schema, Proof, Stage, Classifier, Approve, Publish};
+
+// 1. Define what a valid row looks like, and which fields make a change risky.
+$schema = new Schema('sku', [
+    new Field('sku'),
+    new Field('price', validate: fn ($v) => is_numeric($v)),
+]);
+
+$fieldGroups = [
+    new FieldGroup('metadata', ['name', 'category']),
+    new FieldGroup('price', ['price'], isRisk: true),
+];
+
+// 2. Proof: validate raw rows against the schema.
+$proof = Proof::analyze($rawRows, $schema);
+if (! $proof->isValid()) {
+    // handle $proof->errors and stop here
+}
+
+// 3. Stage: hold the valid rows as a pending batch.
+$batch = Stage::stage('import-2026-07-03', $proof->rows);
+
+// 4. Review: classify staged rows against what your app already has.
+$existingRows = /* your own query, e.g. WHERE category IN (...) */ [];
+$classified = Classifier::classifyAll($batch->rows, $existingRows, $fieldGroups);
+
+// 5. Approve: acknowledge overwrite-risk rows explicitly (or none, to block them).
+$approval = Approve::approve($batch, $classified, approvedRowKeys: [], approvedBy: 'jane@example.com');
+
+// 6. Publish: get a plan back, then execute it yourself, inside your own transaction.
+$plan = Publish::plan($classified, $approval, source: 'products-2026-07.csv');
+
+DB::transaction(function () use ($plan) {
+    foreach ($plan->writes as $write) {
+        // $write->changeClass tells you upsert vs. delete (ChangeClass::Removed)
+        MyModel::query()->updateOrCreate(['sku' => $write->row->key], $write->row->data);
+    }
+
+    AuditLog::create([
+        'source' => $plan->audit->source,
+        'approved_by' => $plan->audit->approvedBy,
+        'change_counts' => $plan->audit->changeCounts,
+    ]);
+});
+```
+
+Using Laravel? The wrapper gives you an `ImportDefinition` interface to bundle the schema/field groups/existing-row query/write logic per import type, plus queueable `ProofAndStageJob`/`PublishJob` classes — see `src/Laravel/`.
+
+## Status
+
+`v0.1.0`. The core and Laravel wrapper are built, fully tested, and proven against a real Laravel app's production fixture-import pipeline — both its diff and publish stages are swapped over to this package. See [ROADMAP.md](ROADMAP.md) for what's done, what's left, and the extraction notes in [docs/biljartv2-seams.md](docs/biljartv2-seams.md) for the design decisions behind the core (why publish returns a plan instead of touching storage, how overwrite-risk generalizes past one field-group split, and so on).
+
+A written case study, covering that migration in a real production app, is planned once it's run through a real import cycle on this path.
+
+## License
+
+MIT — see [LICENSE](LICENSE).

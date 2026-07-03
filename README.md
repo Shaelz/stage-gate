@@ -29,19 +29,22 @@ Not a general ETL framework. It doesn't move data between systems, transform arb
 - **PHP 8.2+** for the core. Matches the reference implementation (biljartv2) and keeps extraction close to a refactor instead of a rewrite.
 - **Pest or PHPUnit** for the pipeline's own test suite: overwrite classification, transactional publish, and the "no partial writes" guarantee all need direct coverage, not just app-level tests.
 - **Thin Laravel package wrapper** (spatie/laravel-package-tools for the scaffold) around a framework-agnostic core. Keep the core free of Laravel dependencies so the stage contract could theoretically be consumed outside Laravel later, even if the only real consumer for now is Laravel.
-- **Composer** for distribution, private or public depending on whether this stays client-specific tooling or goes fully open source like ship-notes.
+- **Composer** for distribution. Public and MIT-licensed as of [v0.1.0](https://github.com/Shaelz/stage-gate/releases/tag/v0.1.0) — not yet on Packagist, so install it as a local path repository until that submission lands (see Installation below).
 
 See [ROADMAP.md](ROADMAP.md) for the planned build sequence.
 
 ## Status
 
-In progress. Steps 1–3 of the [roadmap](ROADMAP.md) are done:
+Steps 1–4 of the [roadmap](ROADMAP.md) are done:
 
 - Step 1: the seams in biljartv2's fixture-import code are mapped — see [docs/biljartv2-seams.md](docs/biljartv2-seams.md).
 - Step 2: the framework-agnostic core is built — `Proof`, `Stage`, `Classifier` (review/diff), `Approve`, `Publish` — with no Laravel dependency, fully tested with Pest.
-- Step 3: the thin Laravel wrapper is scaffolded — a service provider, migrations, Eloquent models, a `BatchRepository`, a `PublishExecutor`, and queueable `ProofAndStageJob`/`PublishJob` classes. Host apps supply domain-specific glue (schema, field groups, existing-row queries, write logic) via a single `ImportDefinition` implementation per import type.
+- Step 3: the thin Laravel wrapper is built — a service provider, migrations, Eloquent models, a `BatchRepository`, a `PublishExecutor`, and queueable `ProofAndStageJob`/`PublishJob` classes. Host apps supply domain-specific glue (schema, field groups, existing-row queries, write logic) via a single `ImportDefinition` implementation per import type.
+- Step 4: biljartv2's fixture-diff and fixture-publish code paths are actually swapped over to call this package — not a demo, the production system's own code. Verified against a real production database dump in a non-production dry run: the classifier correctly flagged 213 genuine overwrite-risk rows, publish correctly blocked without `--allow-result-overwrite` and correctly published with it, and the real production database was untouched throughout.
 
-Not yet done: swapping biljartv2 over to actually consume the package (step 4), which is the real proof that the extraction boundary was drawn in the right place.
+Repo is public, MIT-licensed, and tagged at [v0.1.0](https://github.com/Shaelz/stage-gate/releases/tag/v0.1.0) (step 6, done early since Packagist wants a public repo anyway — submission itself is still pending).
+
+Not yet done: biljartv2 running an actual production import through this path (the rest of step 4), which then unblocks step 5's case study — expected once the next real fixture update lands, roughly a couple of months out as of this writing.
 
 ## Shape of the API (as built)
 
@@ -54,6 +57,23 @@ Publish::plan($classifiedRows, $approval, $source)           // -> PublishPlan: 
 ```
 
 The core never touches storage. `Publish::plan()` returns a plan — a list of writes (upserts and deletes) plus an audit entry — and the host application executes it inside its own transaction. See the "storage boundary" and "scope" entries in [docs/biljartv2-seams.md](docs/biljartv2-seams.md) for why.
+
+## Installation
+
+Not yet on Packagist. Until that submission lands, add it as a local path repository:
+
+```json
+{
+    "repositories": [
+        { "type": "path", "url": "../path/to/stage-gate" }
+    ],
+    "require": {
+        "shaelz/stage-gate": "*@dev"
+    }
+}
+```
+
+The Laravel wrapper (`StageGate\Laravel\*`) needs `spatie/laravel-package-tools`, `illuminate/support`, and `illuminate/database` in the host app — see the `suggest` entries in [composer.json](composer.json). The core (everything else) has no dependencies beyond PHP 8.2.
 
 ## Proof this works before it's a library
 

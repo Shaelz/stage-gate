@@ -24,8 +24,9 @@
    - Not yet done: actually wiring a real `ImportDefinition` for biljartv2's fixtures (schema, field groups, existing-row query, write logic) — that naturally belongs in step 4, since it's biljartv2-specific glue, not generic wrapper code.
 
 4. **Swap biljartv2 over to consume the package.** This is the real proof step: not a demo of the extracted library, but the production system running on it. If this migration is painful, the extraction boundary was wrong and step 2 needs revisiting.
-   - Add the package as a local/path Composer dependency in BiljartV2.
-   - Replace the existing import code path with calls into the package, stage by stage, keeping the current UI/behavior unchanged.
+   - Add the package as a local/path Composer dependency in BiljartV2 — done.
+   - **(4a, done)** Write a real `ImportDefinition` for league fixtures (`LeagueFixturesImportDefinition`, `LeagueFixturesExistingRowsProvider`, `LeagueFixturesPublishWriter`) and verify it against BiljartV2's actual schema in a new, additive test — nothing existing touched or replaced. Found and fixed a real bug this surfaced: `StageGateServiceProvider` lives under `src/Laravel/`, one level deeper than spatie/laravel-package-tools assumes, so `config('stage-gate')` and the package's migrations silently failed to load until the base path was set explicitly and `runsMigrations()` was added. This was a step-3 wrapper bug, not an extraction-boundary problem — step 2 doesn't need revisiting.
+   - **(4b, not yet done)** Replace the existing import code path with calls into the package, stage by stage, keeping the current UI/behavior unchanged. Cup fixtures still need their own `ImportDefinition`.
    - Run a real fixture import through the new path in a non-production environment before cutting over.
    - Cut over production and watch at least one real import cycle end-to-end.
 

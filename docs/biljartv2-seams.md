@@ -257,3 +257,23 @@ biljartv2's real test cases... not new hypothetical tests").
   safety re-check biljartv2's publish command performs, so a canonical row
   edited after approval still blocks an unapproved overwrite instead of
   silently publishing stale approval data.
+- **Package-tools base-path bug (found during step 4a)** — wiring a real
+  `ImportDefinition` (`LeagueFixturesImportDefinition` in BiljartV2) against
+  BiljartV2's actual schema surfaced a bug invisible in every earlier
+  Capsule-based smoke test, because those never booted the real
+  `StageGateServiceProvider`. spatie/laravel-package-tools resolves config
+  and migration paths as `basePath/../config/...` and
+  `basePath/../database/migrations/...`, and infers `basePath` from the
+  service provider's own directory — which only works if the provider lives
+  directly in the package's `src/`. Ours lives one level deeper, in
+  `src/Laravel/`, so the inferred base path was off by one directory and
+  `config('stage-gate.tables.*')` silently returned `null` (no error — just
+  a missing key) and the package's own migrations never ran. Fixed with an
+  explicit `$package->setBasePath(dirname(__DIR__))` in
+  `StageGateServiceProvider::configurePackage()`. Separately,
+  `hasMigrations()` only registers filenames — `runsMigrations()` must be
+  called too, or nothing loads even with the right path. Neither bug
+  touched the extraction boundary; both were purely step-3 wrapper bugs,
+  caught only once a real Laravel app (not a hand-rolled Capsule harness)
+  booted the provider — a good argument for testing against a real
+  consumer earlier next time.

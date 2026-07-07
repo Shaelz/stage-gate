@@ -1,5 +1,16 @@
 # Roadmap
 
+## Now
+
+Stage Gate is public, installable through Packagist, and integrated into
+BiljartV2's fixture diff and publish paths. The remaining proof is a real
+production import cycle through that integration.
+
+## Next
+
+After that production cycle, write the case study using the observed migration
+evidence. Do not advance it from the existing dry run alone.
+
 1. **(Done) Map the seams in biljartv2.** Go through the existing import code and mark exactly where the five stages currently live, what's generic versus fixture-specific, and what state each stage actually needs from the last. This is read-only work; nothing gets extracted until the seams are clear. See [docs/biljartv2-seams.md](docs/biljartv2-seams.md).
    - Locate the current import code path in BiljartV2 (controller, job, service — wherever proof/stage/review/approve/publish actually happen today).
    - Annotate each of the five stages against the real code: which class/method does it, what it takes in, what it returns.

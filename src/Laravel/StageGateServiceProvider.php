@@ -23,10 +23,15 @@ final class StageGateServiceProvider extends PackageServiceProvider
         $package
             ->name('stage-gate')
             ->hasConfigFile()
+            // Laravel's migrator runs migrations sorted by filename, not in
+            // the order listed here. The date prefixes force import_batches
+            // to be created before the two tables that hold foreign keys to
+            // it; without them MySQL/MariaDB fails with errno 150 (SQLite
+            // allows forward FK references, so tests never catch it).
             ->hasMigrations([
-                'create_stage_gate_import_batches_table',
-                'create_stage_gate_import_batch_rows_table',
-                'create_stage_gate_audit_logs_table',
+                '2026_07_03_000001_create_stage_gate_import_batches_table',
+                '2026_07_03_000002_create_stage_gate_import_batch_rows_table',
+                '2026_07_03_000003_create_stage_gate_audit_logs_table',
             ])
             ->runsMigrations();
     }
